@@ -27,6 +27,14 @@ class QuadTree:
         W = 6
         E = 7
 
+
+    NLU = {
+        Direction.N: (Child.SW, Child.NW, Child.SE, Child.NE),
+        Direction.S: (Child.NW, Child.SW, Child.NE, Child.SE),
+        Direction.W: (Child.SE, Child.SW, Child.NE, Child.NW),
+        Direction.E: (Child.SW, Child.SE, Child.NW, Child.NE),
+    }
+
     Colors = {Tag.NONE : "#808080", Tag.NEIGHBOR : "#ee3030", Tag.SELECTED : "#30ee30"}
         
     def __init__(self, children=None):
@@ -47,26 +55,23 @@ class QuadTree:
         return not self.children
                              
     def get_neighbor_of_greater_or_equal_size(self, direction):   
-        if direction == self.Direction.N:       
-            if self.parent is None:
-                return None
-            if self.parent.children[self.Child.SW] == self: # Is 'self' SW child?
-                return self.parent.children[self.Child.NW]
-            if self.parent.children[self.Child.SE] == self: # Is 'self' SE child?
-                return self.parent.children[self.Child.NE]
-                
-            node = self.parent.get_neighbor_of_greater_or_equal_size(direction)
-            if node is None or node.is_leaf():
-                return node
+        #if direction == self.Direction.N:       
+        if self.parent is None:
+            return None
+        if self.parent.children[QuadTree.NLU[direction][0]] == self: # Is 'self' SW child?
+            return self.parent.children[QuadTree.NLU[direction][1]]
+        if self.parent.children[QuadTree.NLU[direction][2]] == self: # Is 'self' SE child?
+            return self.parent.children[QuadTree.NLU[direction][3]]
+            
+        node = self.parent.get_neighbor_of_greater_or_equal_size(direction)
+        if node is None or node.is_leaf():
+            return node
 
-            # 'self' is guaranteed to be a north child
-            return (node.children[self.Child.SW]
-                    if self.parent.children[self.Child.NW] == self # Is 'self' NW child?
-                    else node.children[self.Child.SE])
-        else:
-            # TODO: implement other directions symmetric to NORTH case
-            assert False
-            return []
+        # 'self' is guaranteed to be a north child
+        return (node.children[QuadTree.NLU[direction][0]]
+                if self.parent.children[QuadTree.NLU[direction][1]] == self # Is 'self' NW child?
+                else node.children[QuadTree.NLU[direction][2]])
+
 
     def find_neighbors_of_smaller_size(self, neighbor, direction):   
         candidates = [] if neighbor is None else [neighbor]
@@ -89,8 +94,8 @@ class QuadTree:
             
     def get_neighbors(self, direction):   
         neighbor = self.get_neighbor_of_greater_or_equal_size(direction)
-        neighbors = self.find_neighbors_of_smaller_size(neighbor, direction)
-        return neighbors
+        #neighbors = self.find_neighbors_of_smaller_size(neighbor, direction)
+        return [neighbor]
             
     def draw(self, canvas, x0, y0, x1, y1):
         canvas.create_rectangle(x0, y0, x1, y1, fill = self.Colors[self.tag])
@@ -116,36 +121,53 @@ def clear_tags_in_quadtree(tree):
             clear_tags_in_quadtree(child)
           
 def test_neighbor_finding(tree, selected, direction, canvas):
+    
     clear_tags_in_quadtree(tree)
     selected.tag = tree.Tag.SELECTED
     neighbors = selected.get_neighbors(direction)
-    
+
+
     for neighbor in neighbors:
+        if not neighbor:
+            continue
+        neighbor.tag = tree.Tag.NONE
+
+    for neighbor in neighbors:
+            
+        if not neighbor:
+            continue
         assert neighbor.tag == tree.Tag.NONE
         neighbor.tag = tree.Tag.NEIGHBOR
         
     global posX, posY
     tree.draw(canvas, posX, posY, posX+100, posY+100)
-    posX += 10+100;
+    posX += 10+100
+
             
 def test_simple_cases():
     tree = QuadTree([QuadTree(),
                      QuadTree([QuadTree(), QuadTree(), QuadTree(), QuadTree()]),
                      QuadTree([QuadTree(), QuadTree(), QuadTree(), QuadTree()]),
                      QuadTree()])
-                   
-    test_neighbor_finding(tree, tree.children[tree.Child.NW], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.NE].children[tree.Child.NW], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.NE].children[tree.Child.NE], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.SW], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.SE], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.NW], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.NE], tree.Direction.N, canvas)
-    test_neighbor_finding(tree, tree.children[tree.Child.SE], tree.Direction.N, canvas)
     
-    global posX, posY
-    posX = 10
-    posY += 10+100;
+    test_dirs = [tree.Direction.N, tree.Direction.S, tree.Direction.W, tree.Direction.E]
+    test_dirs = [tree.Direction.E]
+
+
+    for it, test_dir in enumerate(test_dirs):
+                   
+        test_neighbor_finding(tree, tree.children[tree.Child.NW], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.NE].children[tree.Child.NW], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.NE].children[tree.Child.NE], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.SW], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.SE], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.NW], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.SW].children[tree.Child.NE], test_dir, canvas)
+        test_neighbor_finding(tree, tree.children[tree.Child.SE], test_dir, canvas)
+        
+        global posX, posY
+        posX = 10
+        posY += 10+100+10*it;
 
 def test_complex_cases():
     tree = QuadTree([QuadTree([QuadTree(), QuadTree(), QuadTree(), QuadTree()]),
@@ -167,5 +189,5 @@ canvas.pack()
 canvas.create_text(10, 5, text="Selected", fill=QuadTree.Colors[QuadTree.Tag.SELECTED], anchor=NW)
 canvas.create_text(10, 20, text="Neighbors", fill=QuadTree.Colors[QuadTree.Tag.NEIGHBOR], anchor=NW)
 test_simple_cases()
-test_complex_cases()
+#test_complex_cases()
 mainloop()
